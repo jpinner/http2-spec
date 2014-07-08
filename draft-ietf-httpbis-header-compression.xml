@@ -112,39 +112,18 @@
                     values are encoded or decoded.
                 </t>
                 <t>
-                    A set of header fields is treated as an unordered collection
-                    of name-value pairs that can include duplicates.  Names and
-                    values are considered to be opaque sequences of octets.  The
-                    order of header fields is not guaranteed to be preserved
-                    after being compressed and decompressed.
-                </t>
-                <t>
                     In the encoded form, a header field is represented either
                     literally or as a reference to a name-value pair in a header
                     table.  A set of header fields can therefore be encoded
                     using a mixture of references and literal values.
                 </t>
                 <t>
-                    As two consecutive sets of header fields often have header
-                    fields in common, each set is coded as a difference from the
-                    previous set. The goal is to only encode the changes between
-                    the two sets of header fields (that is, header fields that
-                    are present in only one of the sets) and eliminate
-                    redundancy (header fields present in both sets).
-                </t>
-                <t>
-                    A subset of the header fields that are encoded as references to
-                    the header table are maintained in a reference set that is
-                    used as the initial set of header fields for the next
-                    encoding.
-                </t>
-                <t>
                     The encoder is responsible for deciding which header fields
                     to insert as new entries in the header table.  The decoder
-                    executes the modifications to the header table and reference
-                    set prescribed by the encoder, reconstructing the set of
-                    header fields in the process.  This enables decoders to
-                    remain simple and understand a wide variety of encoders.
+                    executes the modifications to the header table prescribed
+                    by the encoder, reconstructing the set of header fields in
+                    the process.  This enables decoders to remain simple and
+                    understand a wide variety of encoders.
                 </t>
                 <t>
                     Examples illustrating the use of these different mechanisms
@@ -192,19 +171,8 @@
                             amongst all encoding contexts.
                         </t>
                         <t hangText="Header Set:">
-                            A header set is an unordered group of header fields
-                            that are encoded jointly. It can contain duplicate
-                            header fields. A complete set of key-value pairs
-                            contained in a HTTP request or response is a header
-                            set.
-                        </t>
-                        <t hangText="Reference Set:">
-                            The reference set (see <xref
-                            target="reference.set"/>) is a component containing
-                            an unordered set of references to entries in the
-                            header table. It doesn't contain duplicate
-                            references. The reference set is used for the
-                            differential encoding of a new header set.
+                            A header set is the complete set of header fields
+                            contained in a HTTP request or response.
                         </t>
                         <t hangText="Header Field Representation:">
                             A header field can be represented in encoded form
@@ -239,11 +207,11 @@
             <section title="Encoding and Decoding Contexts"
                 anchor="encoding.context">
                 <t>
-                    HPACK requires that a decoder maintains both a header table
-                    and a reference set.  No other state information is needed
-                    to decode messages.  An encoder that wishes to reference
-                    entries in the header table, reference set, or static table
-                    needs to maintain a copy of the information a decoder holds.
+                    HPACK requires that a decoder maintains a header table.
+                    No other state information is needed to decode messages.
+                    An encoder that wishes to reference entries in the header
+                    table or static table needs to maintain a copy of the
+                    information a decoder holds.
                 </t>
                 <t>
                     When used for bidirectional communication, such as in HTTP,
@@ -252,11 +220,6 @@
                     without any reference to the local decoding state; and
                     header fields are decoded without reference to the encoding
                     state.
-                </t>
-                <t>
-                    Each endpoint maintains a header table and a reference set in
-                    order to decode header blocks, and optionally a copy of the
-                    information maintained by their peer.
                 </t>
             </section>
 
@@ -286,42 +249,6 @@
                 <t>
                     The header table is updated during the processing of a set
                     of header field representations (see <xref
-                    target="header.representation.processing"/>).
-                </t>
-            </section>
-
-            <section title="Reference Set" anchor="reference.set">
-                <t>
-                    A reference set is an unordered set of references to entries
-                    of the header table. It never contains duplicate references.
-                </t>
-                <t>
-                    The reference set is initially empty.
-                </t>
-                <t>
-                    The reference set is updated during the processing of a set
-                    of header field representations (see <xref
-                    target="header.representation.processing"/>).
-                </t>
-                <t>
-                    The reference set enables differential encoding, where
-                    only differences between the previous header set and the
-                    current header set need to be encoded. The use of
-                    differential encoding is optional for any header set.
-                </t>
-                <t>
-                    When an entry is evicted from the header table, if it was
-                    referenced from the reference set, its reference is removed
-                    from the reference set.
-                </t>
-                <t>
-                    To limit the memory requirements on the decoder side for
-                    handling the reference set, only entries within the header
-                    table can be contained in the reference set. To still allow
-                    entries from the static table to take advantage of the
-                    differential encoding, when a header field is represented as
-                    a reference to an entry of the static table, this entry is
-                    inserted into the header table (see <xref
                     target="header.representation.processing"/>).
                 </t>
             </section>
@@ -462,17 +389,8 @@
                     target="detailed.format"/>.
                 </t>
                 <t>
-                    An <spanx>indexed representation</spanx> corresponding to an
-                    entry <spanx>present</spanx> in the reference set entails
-                    the following actions:
-                    <list style="symbols">
-                        <t>The entry is removed from the reference set.</t>
-                    </list>
-                </t>
-                <t>
-                    An <spanx>indexed representation</spanx> corresponding to an
-                    entry <spanx>not present</spanx> in the reference set
-                    entails the following actions:
+                    An <spanx>indexed representation</spanx> entails the following
+                    actions:
                     <list style="symbols">
                         <t>If referencing an element of the static table:
                         <list style="symbols">
@@ -480,17 +398,12 @@
                             entry is emitted.</t>
                             <t>The referenced static entry is inserted at the
                             beginning of the header table.</t>
-                            <t>A reference to this new header table entry is
-                            added to the reference set, unless this new entry
-                            didn't fit in the header table.</t>
                         </list>
                         </t>
                         <t>If referencing an element of the header table:
                         <list style="symbols">
                             <t>The header field corresponding to the referenced
                             entry is emitted.</t>
-                            <t>The referenced header table entry is added to the
-                            reference set.</t>
                         </list>
                         </t>
                     </list>
@@ -511,24 +424,7 @@
                         <t>The header field is emitted.</t>
                         <t>The header field is inserted at the beginning of the
                         header table.</t>
-                        <t>A reference to the new entry is added to the
-                        reference set, unless this new entry didn't fit in
-                        the header table.</t>
                     </list>
-                </t>
-            </section>
-
-            <section title="Reference Set Emission"
-                     anchor="reference.set.emission">
-                <t>
-                    Once all the representations contained in a header block
-                    have been processed, any header fields included in the
-                    reference set that have not previously been emitted during
-                    the processing of this header block are emitted.
-                </t>
-                <t>
-                    After the emission of these remaining header fields, the
-                    header set is complete.
                 </t>
             </section>
         </section>
@@ -549,19 +445,12 @@
                     always be lower than or equal to this maximum size.
                 </t>
                 <t>
-                    The reference set can only contain references to entries of
-                    the header table, and can't contain references to entries of
-                    the static table. In addition, it can't contain duplicate
-                    references.  Therefore, its maximum size is bounded by the
-                    size of the header table.
-                </t>
-                <t>
                     By default, the maximum size of the header table is equal to
                     the value of the HTTP/2 setting SETTINGS_HEADER_TABLE_SIZE
                     defined by the decoder (see <xref target="HTTP2"
-                        x:fmt="of" x:rel="#SettingValues"/>).  The encoder can
+                    x:fmt="of" x:rel="#SettingValues"/>).  The encoder can
                     change this maximum size (see <xref
-                        target="encoding.context.update"/>), but it MUST stay
+                    target="maximum.header.table.size.change"/>), but it MUST stay
                     lower than or equal to the value of
                     SETTINGS_HEADER_TABLE_SIZE.
                 </t>
@@ -569,9 +458,9 @@
                     After applying an updated value of the HTTP/2 setting
                     SETTINGS_HEADER_TABLE_SIZE that changes the maximum size of
                     the header table used by the encoder, the encoder MUST
-                    signal this change via an encoding context update (see <xref
-                    target="encoding.context.update"/>). This encoding context
-                    update MUST occur at the beginning of the first header
+                    signal this change (see <xref
+                    target="maximum.header.table.size.change"/>). This update
+                    MUST occur at the beginning of the first header
                     block following the SETTINGS frame sent to acknowledge the
                     application of the updated settings.
                 </t>
@@ -606,10 +495,6 @@
                     entries are evicted from the end of the header table until
                     the size of the header table is less than or equal to the
                     maximum size.
-                </t>
-                <t>
-                    Whenever an entry is evicted from the header table, any
-                    reference to that entry from the reference set is removed.
                 </t>
                 <t>
                     The eviction of an entry from the header table causes the
@@ -770,9 +655,9 @@ else
                     String literals which use Huffman encoding are encoded with
                     the Huffman code defined in <xref target="huffman.code"/>
                     (see examples in <xref
-                        target="request.examples.with.huffman.coding">Request
+                        target="request.example.with.huffman.coding">Request
                         Examples with Huffman Coding</xref> and in <xref
-                        target="response.examples.with.huffman.coding">Response
+                        target="response.example.with.huffman.coding">Response
                         Examples with Huffman Coding</xref>). The encoded data
                     is the bitwise concatenation of the codes corresponding to
                     each octet of the string literal.
@@ -812,9 +697,8 @@ else
                     in either the header table or the static table.
                 </t>
                 <t>
-                    An indexed header field representation can either causes a
-                    header field to be emitted or to be removed from the
-                    reference set, as described in <xref
+                    An indexed header field representation can causes a header
+                    field to be emitted as described in <xref
                     target="header.representation.processing"/>.
                 </t>
 
@@ -1040,59 +924,25 @@ else
                 </section>
             </section>
 
-            <section title="Encoding Context Update"
-                anchor="encoding.context.update">
-                <t>
-                    An encoding context update causes the immediate application
-                    of a change to the encoding context.
-                </t>
-                <figure title="Context Update">
-                    <artwork type="inline"><![CDATA[
-  0   1   2   3   4   5   6   7
-+---+---+---+---+---+---+---+---+
-| 0 | 0 | 1 | F |      ...      |
-+---+---------------------------+
-]]></artwork>
-                </figure>
-                <t>
-                    An encoding context update starts with the '001' 3-bit
-                    pattern.
-                </t>
-                <t>
-                    It is followed by a flag specifying the type of the change,
-                    and by any data necessary to describe the change itself.
-                </t>
-                <figure title="Reference Set Emptying">
-                    <artwork type="inline"><![CDATA[
-  0   1   2   3   4   5   6   7
-+---+---+---+---+---+---+---+---+
-| 0 | 0 | 1 | 1 |       0       |
-+---+---------------------------+
-]]></artwork>
-                </figure>
-                <t>
-                    The flag bit being set to '1' signals that the reference set
-                    is emptied. The remaining bits MUST be set to '0', non-zero
-                    values MUST be treated as a decoding error.
-                </t>
+            <section title="Maximum Header Table Size Change"
+                anchor="maximum.header.table.size.change">
                 <figure title="Maximum Header Table Size Change">
                     <artwork type="inline"><![CDATA[
   0   1   2   3   4   5   6   7
 +---+---+---+---+---+---+---+---+
-| 0 | 0 | 1 | 0 | Max size (4+) |
+| 0 | 0 | 1 |   Max size (5+)   |
 +---+---------------------------+
 ]]></artwork>
                 </figure>
                 <t>
-                    The flag bit being set to '0' signals that a change to the
-                    maximum size of the header table. This new maximum size MUST
-                    be lower than or equal to the maximum set by the decoder.
-                    That is, the value of the HTTP/2 setting
-                    SETTINGS_HEADER_TABLE_SIZE, defined in <xref target="HTTP2"
-                    x:fmt="of" x:rel="#SettingValues"/>.
+                    A maximum header table size change starts with the '001' 3-bit
+                    pattern. This new maximum size MUST be lower than or equal
+                    to the maximum set by the decoder.  That is, the value of
+                    the HTTP/2 setting SETTINGS_HEADER_TABLE_SIZE, defined in
+                    <xref target="HTTP2" x:fmt="of" x:rel="#SettingValues"/>.
                 </t>
                 <t>
-                    The new maximum size is encoded as an integer with a 4-bit
+                    The new maximum size is encoded as an integer with a 5-bit
                     prefix (see <xref target="integer.representation"/>).
                 </t>
                 <t>
@@ -1322,7 +1172,7 @@ else
                     SETTINGS_HEADER_TABLE_SIZE.  An encoder can limit the amount
                     of state memory it uses by signaling lower header table size
                     than the decoder allows (see <xref
-                    target="encoding.context.update"/>).
+                    target="maximum.header.table.size.change"/>).
                 </t>
                 <t>
                     The amount of temporary memory consumed by an encoder or
@@ -1525,6 +1375,7 @@ else
                 anchor="changes.since.draft-ietf-httpbis-header-compression-08">
                 <t><list style="symbols">
                     <t>
+                        Removed reference set.
                     </t>
                 </list></t>
             </section>
@@ -2493,13 +2344,9 @@ EOS (256)  |11111111|11111111|11111111|111111      3fffffff  [30]
     </section>
 
 </section>
-<section title="Request Examples without Huffman Coding"
-    anchor="request.examples.without.huffman.coding">
-    <t>
-        This section shows several consecutive header sets, corresponding to
-        HTTP requests, on the same connection.
-    </t>
-    <section title="First Request">
+<section title="Request Example without Huffman Coding"
+    anchor="request.example.without.huffman.coding">
+    <section title="HTTP Request">
         <t>
             <figure>
                 <preamble>Header set to encode:</preamble>
@@ -2509,9 +2356,6 @@ EOS (256)  |11111111|11111111|11111111|111111      3fffffff  [30]
 :path: /
 :authority: www.example.com]]></artwork>
             </figure>
-        </t>
-        <t>
-            Reference set: empty.
         </t>
         <t>
             <figure>
@@ -2565,178 +2409,15 @@ EOS (256)  |11111111|11111111|11111111|111111      3fffffff  [30]
             </figure>
         </t>
     </section>
-
-    <section title="Second Request">
-        <t>
-            This request takes advantage of the differential encoding of header
-            sets.
-        </t>
-        <t>
-            <figure>
-                <preamble>Header set to encode:</preamble>
-                <artwork>
-<![CDATA[:method: GET
-:scheme: http
-:path: /
-:authority: www.example.com
-cache-control: no-cache]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Reference set:</preamble>
-                <artwork>
-<![CDATA[[  1] :authority: www.example.com
-[  2] :path: /
-[  3] :scheme: http
-[  4] :method: GET]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Hex dump of encoded data:</preamble>
-                <artwork>
-<![CDATA[5c08 6e6f 2d63 6163 6865                | \.no-cache]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoding process:</preamble>
-                <artwork>
-<![CDATA[5c                                      | == Literal indexed ==
-                                        |   Indexed name (idx = 28)
-                                        |     cache-control
-08                                      |   Literal value (len = 8)
-6e6f 2d63 6163 6865                     | no-cache
-                                        | -> cache-control: no-cache]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Header Table (after decoding):</preamble>
-                <artwork>
-<![CDATA[[  1] (s =  53) cache-control: no-cache
-[  2] (s =  57) :authority: www.example.com
-[  3] (s =  38) :path: /
-[  4] (s =  43) :scheme: http
-[  5] (s =  42) :method: GET
-      Table size: 233]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoded header set:</preamble>
-                <artwork>
-<![CDATA[cache-control: no-cache
-:authority: www.example.com
-:path: /
-:scheme: http
-:method: GET]]></artwork>
-            </figure>
-        </t>
-    </section>
-
-    <section title="Third Request">
-        <t>
-            This request has not enough headers in common with the previous
-            request to take advantage of the differential encoding. Therefore,
-            the reference set is emptied before encoding the header fields.
-        </t>
-        <t>
-            <figure>
-                <preamble>Header set to encode:</preamble>
-                <artwork>
-<![CDATA[:method: GET
-:scheme: https
-:path: /index.html
-:authority: www.example.com
-custom-key: custom-value]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Reference set:</preamble>
-                <artwork>
-<![CDATA[[  1] cache-control: no-cache
-[  2] :authority: www.example.com
-[  3] :path: /
-[  4] :scheme: http
-[  5] :method: GET]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Hex dump of encoded data:</preamble>
-                <artwork>
-<![CDATA[3085 8c8b 8440 0a63 7573 746f 6d2d 6b65 | 0....@.custom-ke
-790c 6375 7374 6f6d 2d76 616c 7565      | y.custom-value]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoding process:</preamble>
-                <artwork>
-<![CDATA[30                                      | == Empty reference set ==
-                                        |   idx = 0
-                                        |   flag = 1
-85                                      | == Indexed - Add ==
-                                        |   idx = 5
-                                        | -> :method: GET
-8c                                      | == Indexed - Add ==
-                                        |   idx = 12
-                                        | -> :scheme: https
-8b                                      | == Indexed - Add ==
-                                        |   idx = 11
-                                        | -> :path: /index.html
-84                                      | == Indexed - Add ==
-                                        |   idx = 4
-                                        | -> :authority: www.example\
-                                        |   .com
-40                                      | == Literal indexed ==
-0a                                      |   Literal name (len = 10)
-6375 7374 6f6d 2d6b 6579                | custom-key
-0c                                      |   Literal value (len = 12)
-6375 7374 6f6d 2d76 616c 7565           | custom-value
-                                        | -> custom-key: custom-valu\
-                                        |   e]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Header Table (after decoding):</preamble>
-                <artwork>
-<![CDATA[[  1] (s =  54) custom-key: custom-value
-[  2] (s =  48) :path: /index.html
-[  3] (s =  44) :scheme: https
-[  4] (s =  53) cache-control: no-cache
-[  5] (s =  57) :authority: www.example.com
-[  6] (s =  38) :path: /
-[  7] (s =  43) :scheme: http
-[  8] (s =  42) :method: GET
-      Table size: 379]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoded header set:</preamble>
-                <artwork>
-<![CDATA[:method: GET
-:scheme: https
-:path: /index.html
-:authority: www.example.com
-custom-key: custom-value]]></artwork>
-            </figure>
-        </t>
-    </section>
-
 </section>
-<section title="Request Examples with Huffman Coding"
-    anchor="request.examples.with.huffman.coding">
+
+<section title="Request Example with Huffman Coding"
+    anchor="request.example.with.huffman.coding">
     <t>
-        This section shows the same examples as the previous section, but using
+        This section shows the same example as the previous section, but using
         Huffman encoding for the literal values.
     </t>
-    <section title="First Request">
+    <section title="HTTP Request">
         <t>
             <figure>
                 <preamble>Header set to encode:</preamble>
@@ -2746,9 +2427,6 @@ custom-key: custom-value]]></artwork>
 :path: /
 :authority: www.example.com]]></artwork>
             </figure>
-        </t>
-        <t>
-            Reference set: empty.
         </t>
         <t>
             <figure>
@@ -2805,189 +2483,11 @@ f1e3 c2e5 f23a 6ba0 ab90 f4ff           | .....:k.....
             </figure>
         </t>
     </section>
-
-    <section title="Second Request">
-        <t>
-            This request takes advantage of the differential encoding of header
-            sets.
-        </t>
-        <t>
-            <figure>
-                <preamble>Header set to encode:</preamble>
-                <artwork>
-<![CDATA[:method: GET
-:scheme: http
-:path: /
-:authority: www.example.com
-cache-control: no-cache]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Reference set:</preamble>
-                <artwork>
-<![CDATA[[  1] :authority: www.example.com
-[  2] :path: /
-[  3] :scheme: http
-[  4] :method: GET]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Hex dump of encoded data:</preamble>
-                <artwork>
-<![CDATA[5c86 a8eb 1064 9cbf                     | \....d..]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoding process:</preamble>
-                <artwork>
-<![CDATA[5c                                      | == Literal indexed ==
-                                        |   Indexed name (idx = 28)
-                                        |     cache-control
-86                                      |   Literal value (len = 8)
-                                        |     Huffman encoded:
-a8eb 1064 9cbf                          | ...d..
-                                        |     Decoded:
-                                        | no-cache
-                                        | -> cache-control: no-cache]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Header Table (after decoding):</preamble>
-                <artwork>
-<![CDATA[[  1] (s =  53) cache-control: no-cache
-[  2] (s =  57) :authority: www.example.com
-[  3] (s =  38) :path: /
-[  4] (s =  43) :scheme: http
-[  5] (s =  42) :method: GET
-      Table size: 233]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoded header set:</preamble>
-                <artwork>
-<![CDATA[cache-control: no-cache
-:authority: www.example.com
-:path: /
-:scheme: http
-:method: GET]]></artwork>
-            </figure>
-        </t>
-    </section>
-
-    <section title="Third Request">
-        <t>
-            This request has not enough headers in common with the previous
-            request to take advantage of the differential encoding. Therefore,
-            the reference set is emptied before encoding the header fields.
-        </t>
-        <t>
-            <figure>
-                <preamble>Header set to encode:</preamble>
-                <artwork>
-<![CDATA[:method: GET
-:scheme: https
-:path: /index.html
-:authority: www.example.com
-custom-key: custom-value]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Reference set:</preamble>
-                <artwork>
-<![CDATA[[  1] cache-control: no-cache
-[  2] :authority: www.example.com
-[  3] :path: /
-[  4] :scheme: http
-[  5] :method: GET]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Hex dump of encoded data:</preamble>
-                <artwork>
-<![CDATA[3085 8c8b 8440 8825 a849 e95b a97d 7f89 | 0....@.%.I.[.}..
-25a8 49e9 5bb8 e8b4 bf                  | %.I.[....]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoding process:</preamble>
-                <artwork>
-<![CDATA[30                                      | == Empty reference set ==
-                                        |   idx = 0
-                                        |   flag = 1
-85                                      | == Indexed - Add ==
-                                        |   idx = 5
-                                        | -> :method: GET
-8c                                      | == Indexed - Add ==
-                                        |   idx = 12
-                                        | -> :scheme: https
-8b                                      | == Indexed - Add ==
-                                        |   idx = 11
-                                        | -> :path: /index.html
-84                                      | == Indexed - Add ==
-                                        |   idx = 4
-                                        | -> :authority: www.example\
-                                        |   .com
-40                                      | == Literal indexed ==
-88                                      |   Literal name (len = 10)
-                                        |     Huffman encoded:
-25a8 49e9 5ba9 7d7f                     | %.I.[.}.
-                                        |     Decoded:
-                                        | custom-key
-89                                      |   Literal value (len = 12)
-                                        |     Huffman encoded:
-25a8 49e9 5bb8 e8b4 bf                  | %.I.[....
-                                        |     Decoded:
-                                        | custom-value
-                                        | -> custom-key: custom-valu\
-                                        |   e]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Header Table (after decoding):</preamble>
-                <artwork>
-<![CDATA[[  1] (s =  54) custom-key: custom-value
-[  2] (s =  48) :path: /index.html
-[  3] (s =  44) :scheme: https
-[  4] (s =  53) cache-control: no-cache
-[  5] (s =  57) :authority: www.example.com
-[  6] (s =  38) :path: /
-[  7] (s =  43) :scheme: http
-[  8] (s =  42) :method: GET
-      Table size: 379]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoded header set:</preamble>
-                <artwork>
-<![CDATA[:method: GET
-:scheme: https
-:path: /index.html
-:authority: www.example.com
-custom-key: custom-value]]></artwork>
-            </figure>
-        </t>
-    </section>
-
 </section>
-<section title="Response Examples without Huffman Coding"
+
+<section title="Response Example without Huffman Coding"
     anchor="response.examples.without.huffman.coding">
-    <t>
-        This section shows several consecutive header sets, corresponding to
-        HTTP responses, on the same connection. The HTTP/2 setting
-        SETTINGS_HEADER_TABLE_SIZE is set to the value of 256 octets, causing
-        some evictions to occur.
-    </t>
-    <section title="First Response">
+    <section title="HTTP Response">
         <t>
             <figure>
                 <preamble>Header set to encode:</preamble>
@@ -2997,9 +2497,6 @@ cache-control: private
 date: Mon, 21 Oct 2013 20:13:21 GMT
 location: https://www.example.com]]></artwork>
             </figure>
-        </t>
-        <t>
-            Reference set: empty.
         </t>
         <t>
             <figure>
@@ -3068,214 +2565,15 @@ location: https://www.example.com]]></artwork>
             </figure>
         </t>
     </section>
-
-    <section title="Second Response">
-        <t>
-            The (":status", "302") header field is evicted from the header table
-            to free space to allow adding the (":status", "200") header field,
-            copied from the static table into the header table. The (":status",
-            "302") header field doesn't need to be removed from the reference
-            set as it is evicted from the header table.
-        </t>
-        <t>
-            <figure>
-                <preamble>Header set to encode:</preamble>
-                <artwork>
-<![CDATA[:status: 200
-cache-control: private
-date: Mon, 21 Oct 2013 20:13:21 GMT
-location: https://www.example.com]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Reference set:</preamble>
-                <artwork>
-<![CDATA[[  1] location: https://www.example.com
-[  2] date: Mon, 21 Oct 2013 20:13:21 GMT
-[  3] cache-control: private
-[  4] :status: 302]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Hex dump of encoded data:</preamble>
-                <artwork>
-<![CDATA[8c                                      | .]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoding process:</preamble>
-                <artwork>
-<![CDATA[8c                                      | == Indexed - Add ==
-                                        |   idx = 12
-                                        | - evict: :status: 302
-                                        | -> :status: 200]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Header Table (after decoding):</preamble>
-                <artwork>
-<![CDATA[[  1] (s =  42) :status: 200
-[  2] (s =  63) location: https://www.example.com
-[  3] (s =  65) date: Mon, 21 Oct 2013 20:13:21 GMT
-[  4] (s =  52) cache-control: private
-      Table size: 222]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoded header set:</preamble>
-                <artwork>
-<![CDATA[:status: 200
-location: https://www.example.com
-date: Mon, 21 Oct 2013 20:13:21 GMT
-cache-control: private]]></artwork>
-            </figure>
-        </t>
-    </section>
-
-    <section title="Third Response">
-        <t>
-            Several header fields are evicted from the header table during the
-            processing of this header set. Before evicting a header belonging to
-            the reference set, it is emitted, by coding it twice as an Indexed
-            Representation. The first representation removes the header field
-            from the reference set, the second one adds it again to the
-            reference set, also emitting it.
-        </t>
-        <t>
-            <figure>
-                <preamble>Header set to encode:</preamble>
-                <artwork>
-<![CDATA[:status: 200
-cache-control: private
-date: Mon, 21 Oct 2013 20:13:22 GMT
-location: https://www.example.com
-content-encoding: gzip
-set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Reference set:</preamble>
-                <artwork>
-<![CDATA[[  1] :status: 200
-[  2] location: https://www.example.com
-[  3] date: Mon, 21 Oct 2013 20:13:21 GMT
-[  4] cache-control: private]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Hex dump of encoded data:</preamble>
-                <artwork>
-<![CDATA[8484 431d 4d6f 6e2c 2032 3120 4f63 7420 | ..C.Mon, 21 Oct
-3230 3133 2032 303a 3133 3a32 3220 474d | 2013 20:13:22 GM
-545e 0467 7a69 7084 8483 837b 3866 6f6f | T^.gzip....{8foo
-3d41 5344 4a4b 4851 4b42 5a58 4f51 5745 | =ASDJKHQKBZXOQWE
-4f50 4955 4158 5157 454f 4955 3b20 6d61 | OPIUAXQWEOIU; ma
-782d 6167 653d 3336 3030 3b20 7665 7273 | x-age=3600; vers
-696f 6e3d 31                            | ion=1]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoding process:</preamble>
-                <artwork>
-<![CDATA[84                                      | == Indexed - Remove ==
-                                        |   idx = 4
-                                        | -> cache-control: private
-84                                      | == Indexed - Add ==
-                                        |   idx = 4
-                                        | -> cache-control: private
-43                                      | == Literal indexed ==
-                                        |   Indexed name (idx = 3)
-                                        |     date
-1d                                      |   Literal value (len = 29)
-4d6f 6e2c 2032 3120 4f63 7420 3230 3133 | Mon, 21 Oct 2013
-2032 303a 3133 3a32 3220 474d 54        |  20:13:22 GMT
-                                        | - evict: cache-control: pr\
-                                        |   ivate
-                                        | -> date: Mon, 21 Oct 2013 \
-                                        |   20:13:22 GMT
-5e                                      | == Literal indexed ==
-                                        |   Indexed name (idx = 30)
-                                        |     content-encoding
-04                                      |   Literal value (len = 4)
-677a 6970                               | gzip
-                                        | - evict: date: Mon, 21 Oct\
-                                        |    2013 20:13:21 GMT
-                                        | -> content-encoding: gzip
-84                                      | == Indexed - Remove ==
-                                        |   idx = 4
-                                        | -> location: https://www.e\
-                                        |   xample.com
-84                                      | == Indexed - Add ==
-                                        |   idx = 4
-                                        | -> location: https://www.e\
-                                        |   xample.com
-83                                      | == Indexed - Remove ==
-                                        |   idx = 3
-                                        | -> :status: 200
-83                                      | == Indexed - Add ==
-                                        |   idx = 3
-                                        | -> :status: 200
-7b                                      | == Literal indexed ==
-                                        |   Indexed name (idx = 59)
-                                        |     set-cookie
-38                                      |   Literal value (len = 56)
-666f 6f3d 4153 444a 4b48 514b 425a 584f | foo=ASDJKHQKBZXO
-5157 454f 5049 5541 5851 5745 4f49 553b | QWEOPIUAXQWEOIU;
-206d 6178 2d61 6765 3d33 3630 303b 2076 |  max-age=3600; v
-6572 7369 6f6e 3d31                     | ersion=1
-                                        | - evict: location: https:/\
-                                        |   /www.example.com
-                                        | - evict: :status: 200
-                                        | -> set-cookie: foo=ASDJKHQ\
-                                        |   KBZXOQWEOPIUAXQWEOIU; ma\
-                                        |   x-age=3600; version=1]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Header Table (after decoding):</preamble>
-                <artwork>
-<![CDATA[[  1] (s =  98) set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age\
-                 =3600; version=1
-[  2] (s =  52) content-encoding: gzip
-[  3] (s =  65) date: Mon, 21 Oct 2013 20:13:22 GMT
-      Table size: 215]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoded header set:</preamble>
-                <artwork>
-<![CDATA[cache-control: private
-date: Mon, 21 Oct 2013 20:13:22 GMT
-content-encoding: gzip
-location: https://www.example.com
-:status: 200
-set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1]]></artwork>
-            </figure>
-        </t>
-    </section>
-
 </section>
-<section title="Response Examples with Huffman Coding"
-    anchor="response.examples.with.huffman.coding">
+
+<section title="Response Example with Huffman Coding"
+    anchor="response.example.with.huffman.coding">
     <t>
         This section shows the same examples as the previous section, but using
-        Huffman encoding for the literal values. The HTTP/2 setting
-        SETTINGS_HEADER_TABLE_SIZE is set to the value of 256 octets, causing
-        some evictions to occur. The eviction mechanism uses the length of the
-        decoded literal values, so the same evictions occurs as in the previous
-        section.
+        Huffman encoding for the literal values.
     </t>
-    <section title="First Response">
+    <section title="HTTP Response">
         <t>
             <figure>
                 <preamble>Header set to encode:</preamble>
@@ -3285,9 +2583,6 @@ cache-control: private
 date: Mon, 21 Oct 2013 20:13:21 GMT
 location: https://www.example.com]]></artwork>
             </figure>
-        </t>
-        <t>
-            Reference set: empty.
         </t>
         <t>
             <figure>
@@ -3368,212 +2663,6 @@ location: https://www.example.com]]></artwork>
             </figure>
         </t>
     </section>
-
-    <section title="Second Response">
-        <t>
-            The (":status", "302") header field is evicted from the header table
-            to free space to allow adding the (":status", "200") header field,
-            copied from the static table into the header table. The (":status",
-            "302") header field doesn't need to be removed from the reference
-            set as it is evicted from the header table.
-        </t>
-        <t>
-            <figure>
-                <preamble>Header set to encode:</preamble>
-                <artwork>
-<![CDATA[:status: 200
-cache-control: private
-date: Mon, 21 Oct 2013 20:13:21 GMT
-location: https://www.example.com]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Reference set:</preamble>
-                <artwork>
-<![CDATA[[  1] location: https://www.example.com
-[  2] date: Mon, 21 Oct 2013 20:13:21 GMT
-[  3] cache-control: private
-[  4] :status: 302]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Hex dump of encoded data:</preamble>
-                <artwork>
-<![CDATA[8c                                      | .]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoding process:</preamble>
-                <artwork>
-<![CDATA[8c                                      | == Indexed - Add ==
-                                        |   idx = 12
-                                        | - evict: :status: 302
-                                        | -> :status: 200]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Header Table (after decoding):</preamble>
-                <artwork>
-<![CDATA[[  1] (s =  42) :status: 200
-[  2] (s =  63) location: https://www.example.com
-[  3] (s =  65) date: Mon, 21 Oct 2013 20:13:21 GMT
-[  4] (s =  52) cache-control: private
-      Table size: 222]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoded header set:</preamble>
-                <artwork>
-<![CDATA[:status: 200
-location: https://www.example.com
-date: Mon, 21 Oct 2013 20:13:21 GMT
-cache-control: private]]></artwork>
-            </figure>
-        </t>
-    </section>
-
-    <section title="Third Response">
-        <t>
-            Several header fields are evicted from the header table during the
-            processing of this header set. Before evicting a header belonging to
-            the reference set, it is emitted, by coding it twice as an Indexed
-            Representation. The first representation removes the header field
-            from the reference set, the second one adds it again to the
-            reference set, also emitting it.
-        </t>
-        <t>
-            <figure>
-                <preamble>Header set to encode:</preamble>
-                <artwork>
-<![CDATA[:status: 200
-cache-control: private
-date: Mon, 21 Oct 2013 20:13:22 GMT
-location: https://www.example.com
-content-encoding: gzip
-set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Reference set:</preamble>
-                <artwork>
-<![CDATA[[  1] :status: 200
-[  2] location: https://www.example.com
-[  3] date: Mon, 21 Oct 2013 20:13:21 GMT
-[  4] cache-control: private]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Hex dump of encoded data:</preamble>
-                <artwork>
-<![CDATA[8484 4396 d07a be94 1054 d444 a820 0595 | ..C..z...T.D. ..
-040b 8166 e084 a62d 1bff 5e83 9bd9 ab84 | ...f...-..^.....
-8483 837b ad94 e782 1dd7 f2e6 c7b3 35df | ...{..........5.
-dfcd 5b39 60d5 af27 087f 3672 c1ab 270f | ..[9`..'..6r..'.
-b529 1f95 8731 6065 c003 ed4e e5b1 063d | .)...1`e...N...=
-5007                                    | P.]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoding process:</preamble>
-                <artwork>
-<![CDATA[84                                      | == Indexed - Remove ==
-                                        |   idx = 4
-                                        | -> cache-control: private
-84                                      | == Indexed - Add ==
-                                        |   idx = 4
-                                        | -> cache-control: private
-43                                      | == Literal indexed ==
-                                        |   Indexed name (idx = 3)
-                                        |     date
-96                                      |   Literal value (len = 29)
-                                        |     Huffman encoded:
-d07a be94 1054 d444 a820 0595 040b 8166 | .z...T.D. .....f
-e084 a62d 1bff                          | ...-..
-                                        |     Decoded:
-                                        | Mon, 21 Oct 2013 20:13:22 \
-                                        | GMT
-                                        | - evict: cache-control: pr\
-                                        |   ivate
-                                        | -> date: Mon, 21 Oct 2013 \
-                                        |   20:13:22 GMT
-5e                                      | == Literal indexed ==
-                                        |   Indexed name (idx = 30)
-                                        |     content-encoding
-83                                      |   Literal value (len = 4)
-                                        |     Huffman encoded:
-9bd9 ab                                 | ...
-                                        |     Decoded:
-                                        | gzip
-                                        | - evict: date: Mon, 21 Oct\
-                                        |    2013 20:13:21 GMT
-                                        | -> content-encoding: gzip
-84                                      | == Indexed - Remove ==
-                                        |   idx = 4
-                                        | -> location: https://www.e\
-                                        |   xample.com
-84                                      | == Indexed - Add ==
-                                        |   idx = 4
-                                        | -> location: https://www.e\
-                                        |   xample.com
-83                                      | == Indexed - Remove ==
-                                        |   idx = 3
-                                        | -> :status: 200
-83                                      | == Indexed - Add ==
-                                        |   idx = 3
-                                        | -> :status: 200
-7b                                      | == Literal indexed ==
-                                        |   Indexed name (idx = 59)
-                                        |     set-cookie
-ad                                      |   Literal value (len = 56)
-                                        |     Huffman encoded:
-94e7 821d d7f2 e6c7 b335 dfdf cd5b 3960 | .........5...[9`
-d5af 2708 7f36 72c1 ab27 0fb5 291f 9587 | ..'..6r..'..)...
-3160 65c0 03ed 4ee5 b106 3d50 07        | 1`e...N...=P.
-                                        |     Decoded:
-                                        | foo=ASDJKHQKBZXOQWEOPIUAXQ\
-                                        | WEOIU; max-age=3600; versi\
-                                        | on=1
-                                        | - evict: location: https:/\
-                                        |   /www.example.com
-                                        | - evict: :status: 200
-                                        | -> set-cookie: foo=ASDJKHQ\
-                                        |   KBZXOQWEOPIUAXQWEOIU; ma\
-                                        |   x-age=3600; version=1]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Header Table (after decoding):</preamble>
-                <artwork>
-<![CDATA[[  1] (s =  98) set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age\
-                 =3600; version=1
-[  2] (s =  52) content-encoding: gzip
-[  3] (s =  65) date: Mon, 21 Oct 2013 20:13:22 GMT
-      Table size: 215]]></artwork>
-            </figure>
-        </t>
-        <t>
-            <figure>
-                <preamble>Decoded header set:</preamble>
-                <artwork>
-<![CDATA[cache-control: private
-date: Mon, 21 Oct 2013 20:13:22 GMT
-content-encoding: gzip
-location: https://www.example.com
-:status: 200
-set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1]]></artwork>
-            </figure>
-        </t>
-    </section>
-
 </section>
 <!-- example-end -->
         </section>
